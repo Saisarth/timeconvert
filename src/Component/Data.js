@@ -1,95 +1,129 @@
-import React, {Component} from 'react'
+import React, { Component } from 'react';
 
 class Data extends Component {
   getHour() {
-    var hour = new Date().getHours()
-    var minute = new Date().getMinutes()
-    var hourMinute = `${hour}: ${minute}`
-    return hourMinute;
+    const now = new Date();
+    const hour = now.getHours().toString().padStart(2, '0');
+    const minute = now.getMinutes().toString().padStart(2, '0');
+    return `${hour}:${minute}`;
   }
-    constructor(props) {
-      super(props);
-      this.state = {
-        items: {},
-        value: '',
-        isLoaded: false
-      };
-  
-      this.handleChange = this.handleChange.bind(this);
-    }
-    
-  
-    componentDidMount() {
-      const { value } = this.state;
-  
-      this.fetchData(value);
-    }
-  
-    handleChange(event) {
-      const value = event.target.value;
-  
+
+  constructor(props) {
+    super(props);
+    this.state = {
+      items: {},
+      value: '',
+      isLoaded: false,
+      error: null
+    };
+
+    this.handleChange = this.handleChange.bind(this);
+  }
+
+  componentDidMount() {
+    this.fetchData(this.state.value);
+  }
+
+  handleChange(event) {
+    const value = event.target.value;
+    this.setState({ value }, () => this.fetchData(value));
+  }
+
+  fetchData(value) {
+    if (!value) {
       this.setState({
-        value
+        isLoaded: true,
+        items: {},
+        error: null
       });
-  
-      this.fetchData(value);
+      return;
     }
 
-    fetchData(value) {
-        fetch(
-          `https://api.timezonedb.com/v2.1/get-time-zone?key=J9X3EOT2EM8U&format=json&by=zone&zone=${value}`
-        )
-          .then(res => res.json())
-          .then(json => {
-            this.setState({
-              isLoaded: true,
-              items: json
-            });
-          });
-      }
-  
-    render() {
-      const { isLoaded, value } = this.state;
-  
-      if (!isLoaded) {
-        return <div>Loading...</div>;
-      }
-        return (
-            <div>
-                <label className="control">
-                    {this.state.value !== '' ? 
-                        <input className="input is-info" type="text" name="" value={this.state.items.formatted.slice(10 , 16, 18)} />
-                            :  
-                        <input className="input is-info" type="text" name="" value={this.getHour()} />
-                    }
-                </label>
-                
-                <div className="control">
-                    <div className="select is-fullwidth is-info">
-                        <select onChange={this.handleChange} value={value}>
-                            <option value="">Local Time</option>
-                            <option value="America/Chicago">Chicago</option>
-                            <option value="America/Denver">Denver</option>
-                            <option value="Europe/Berlin">Berlin</option>
-                            <option value="Europe/Busingen">Busingen</option>
-                            <option value="America/Sao_Paulo">São Paulo</option>
-                            <option value="America/Fortaleza">Fortaleza</option>
-                            <option value="Europe/London">London</option>
-                            <option value="Asia/Dubai">Dubai</option>
-                        </select>
-                    </div>
-                </div>
+    fetch(`https://api.timezonedb.com/v2.1/get-time-zone?key=J9X3EOT2EM8U&format=json&by=zone&zone=${value}`)
+      .then(res => {
+        if (!res.ok) {
+          throw new Error(`HTTP error! Status: ${res.status}`);
+        }
+        return res.json();
+      })
+      .then(json => {
+        this.setState({
+          isLoaded: true,
+          items: json,
+          error: null
+        });
+      })
+      .catch(error => {
+        console.error('Fetch error:', error);
+        this.setState({
+          isLoaded: true,
+          error
+        });
+      });
+  }
 
-                {/* {JSON.stringify(items)} */}
+  render() {
+    const { isLoaded, value, items, error } = this.state;
 
-                {/* <ul>
-                    <li>{this.state.items.countryName}</li>
-                    <li>{this.state.items.zoneName}</li>
-                    <li>{this.state.items.formatted}</li>
-                </ul> */}
-            </div>
-        );
+    if (error) {
+      return <div>Error: {error.message}</div>;
     }
+
+    if (!isLoaded) {
+      return <div>Loading...</div>;
+    }
+
+    const formattedTime = items.formatted ? items.formatted.slice(11, 16) : this.getHour();
+
+    return (
+      <div>
+        <label htmlFor="time-input" className="control">
+          Time
+          <input
+            id="time-input"
+            className="input is-info"
+            type="text"
+            name="time"
+            placeholder="Enter time"
+            title="Current time"
+            value={formattedTime}
+            readOnly
+          />
+        </label>
+        
+        <div className="control">
+          <div className="select is-fullwidth is-info">
+            <label htmlFor="timezone-select" className="control">
+              Timezone
+              <select
+                id="timezone-select"
+                name="timezone"
+                title="Select timezone"
+                onChange={this.handleChange}
+                value={value}
+              >
+                <option value="">Local Time</option>
+                <option value="America/Chicago">Chicago</option>
+                <option value="America/Denver">Denver</option>
+                <option value="Europe/Berlin">Berlin</option>
+                <option value="Europe/Busingen">Busingen</option>
+                <option value="America/Sao_Paulo">São Paulo</option>
+                <option value="America/Fortaleza">Fortaleza</option>
+                <option value="Europe/London">London</option>
+                <option value="Asia/Dubai">Dubai</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <ul>
+          <li>Country: {items.countryName}</li>
+          <li>Zone: {items.zoneName}</li>
+          <li>Formatted Time: {items.formatted}</li>
+        </ul>
+      </div>
+    );
+  }
 }
 
 export default Data;
